@@ -650,14 +650,17 @@
             }
 
             try {
-                const langPair = `${languages[fromLang].code}|${languages[toLang].code}`;
-                const response = await fetch(
-                    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
-                );
-                const data = await response.json();
+                // 使用 Lingva Translate (Google Translate 免费 API)
+                const fromCode = languages[fromLang].code;
+                const toCode = languages[toLang].code;
 
-                if (data.responseStatus === 200) {
-                    const result = data.responseData.translatedText;
+                const response = await fetch(
+                    `https://lingva.ml/api/v1/${fromCode}/${toCode}/${encodeURIComponent(text)}`
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const result = data.translation || text;
                     translatedText.textContent = result;
 
                     // 添加到历史
@@ -666,11 +669,32 @@
                     // 自动朗读翻译结果
                     speak(result, toLang);
                 } else {
-                    translatedText.textContent = '翻译失败，请重试';
+                    // Lingva 失败，尝试备用 API
+                    throw new Error('Lingva API failed');
                 }
             } catch (error) {
-                console.error('翻译错误:', error);
-                translatedText.textContent = '网络错误，请检查连接';
+                console.error('Lingva 失败，尝试备用 API:', error);
+                try {
+                    // 备用：MyMemory API (添加邮箱参数增加限制)
+                    const langPair = `${languages[fromLang].code}|${languages[toLang].code}`;
+                    const response = await fetch(
+                        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
+                    );
+                    const data = await response.json();
+
+                    if (data.responseStatus === 200 && data.responseData) {
+                        const result = data.responseData.translatedText;
+                        translatedText.textContent = result;
+
+                        addToHistory(text, result, fromLang, toLang);
+                        speak(result, toLang);
+                    } else {
+                        translatedText.textContent = '翻译服务繁忙，请稍后再试';
+                    }
+                } catch (backupError) {
+                    console.error('备份 API 也失败了:', backupError);
+                    translatedText.textContent = '网络错误，请检查连接';
+                }
             }
         }
 
