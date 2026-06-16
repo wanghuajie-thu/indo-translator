@@ -125,6 +125,64 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
+        /* 自动检测开关 */
+        .auto-detect-switch {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .auto-detect-label {
+            font-size: 14px;
+            color: #666;
+        }
+
         /* 翻译区域 */
         .translation-area {
             background: #f8f9fa;
@@ -326,6 +384,15 @@
             <button class="mode-btn" id="modeLive">实时监听</button>
         </div>
 
+        <!-- 自动检测开关 -->
+        <div class="auto-detect-switch">
+            <label class="toggle-switch">
+                <input type="checkbox" id="autoDetectToggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="auto-detect-label">自动识别语言</span>
+        </div>
+
         <!-- 实时监听状态 -->
         <div class="live-status" id="liveStatus">
             <div class="live-dot"></div>
@@ -366,14 +433,24 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/franc@6.0.0/dist/franc.min.js"></script>
     <script>
         // 语言配置
         const languages = {
-            'zh-CN': { name: '中文', code: 'zh' },
-            'en-US': { name: '英语', code: 'en' },
-            'id-ID': { name: '印尼语', code: 'id' },
-            'vi-VN': { name: '越南语', code: 'vi' },
-            'ms-MY': { name: '马来语', code: 'ms' }
+            'zh-CN': { name: '中文', code: 'zh', francCode: 'cmn' },
+            'en-US': { name: '英语', code: 'en', francCode: 'eng' },
+            'id-ID': { name: '印尼语', code: 'id', francCode: 'ind' },
+            'vi-VN': { name: '越南语', code: 'vi', francCode: 'vie' },
+            'ms-MY': { name: '马来语', code: 'ms', francCode: 'msa' }
+        };
+
+        // 自动语言检测映射
+        const francToLangCode = {
+            'cmn': 'zh-CN',
+            'eng': 'en-US',
+            'ind': 'id-ID',
+            'vie': 'vi-VN',
+            'msa': 'ms-MY'
         };
 
         // 状态
@@ -383,6 +460,7 @@
         let isListening = false;
         let recognition = null;
         let history = [];
+        let autoDetect = false;  // 是否开启自动语言检测
 
         // DOM 元素
         const sourceLangSelect = document.getElementById('sourceLangSelect');
@@ -495,15 +573,59 @@
             liveBtnText.textContent = '开始监听';
         }
 
+        // 检测输入语言
+        function detectLanguage(text) {
+            // 如果包含中文字符，直接判断为中文
+            if (/[一-龥]/.test(text)) {
+                return 'zh-CN';
+            }
+
+            // 使用 franc 库检测语言
+            if (typeof franc !== 'undefined') {
+                const detected = franc(text);
+                console.log('检测到的语言代码:', detected);
+
+                // 尝试匹配 franc 的语言代码
+                if (francToLangCode[detected]) {
+                    return francToLangCode[detected];
+                }
+            }
+
+            // 无法检测时返回 null
+            return null;
+        }
+
         // 翻译文本
         async function translate(text) {
             if (!text.trim()) return;
 
             translatedText.innerHTML = '<div class="loading"></div> 翻译中...';
 
+            let fromLang = sourceLang;
+            let toLang = targetLang;
+
+            // 自动语言检测
+            if (autoDetect) {
+                const detectedLang = detectLanguage(text);
+
+                if (detectedLang && detectedLang !== sourceLang) {
+                    // 检测到的语言与当前源语言不同，交换翻译方向
+                    fromLang = detectedLang;
+                    toLang = sourceLang;
+
+                    // 更新 UI 显示
+                    sourceLangSelect.value = fromLang;
+                    targetLangSelect.value = toLang;
+                    sourceLang = fromLang;
+                    targetLang = toLang;
+
+                    showToast(`检测到 ${languages[detectedLang].name}，自动切换翻译方向`);
+                }
+            }
+
             try {
                 // 使用 MyMemory 免费翻译 API
-                const langPair = `${languages[sourceLang].code}|${languages[targetLang].code}`;
+                const langPair = `${languages[fromLang].code}|${languages[toLang].code}`;
                 const response = await fetch(
                     `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
                 );
@@ -517,7 +639,7 @@
                     addToHistory(text, result);
 
                     // 自动朗读翻译结果
-                    speak(result, targetLang);
+                    speak(result, toLang);
                 } else {
                     translatedText.textContent = '翻译失败，请重试';
                 }
@@ -587,6 +709,16 @@
             translatedText.textContent = '翻译结果将显示在这里';
 
             showToast('已切换语言方向');
+        });
+
+        // 自动检测开关
+        document.getElementById('autoDetectToggle').addEventListener('change', (e) => {
+            autoDetect = e.target.checked;
+            if (autoDetect) {
+                showToast('已开启自动语言检测');
+            } else {
+                showToast('已关闭自动语言检测');
+            }
         });
 
         // 模式切换
