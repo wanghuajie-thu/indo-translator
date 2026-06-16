@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>中文-印尼语语音翻译</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 语言切换 */
+        .lang-switch {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .lang-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            background: white;
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .lang-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .swap-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.3s;
+        }
+
+        .swap-btn:hover {
+            transform: rotate(180deg);
+            background: #e0e0e0;
+        }
+
+        /* 模式切换 */
+        .mode-switch {
+            display: flex;
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 翻译区域 */
+        .translation-area {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            min-height: 120px;
+        }
+
+        .source-text {
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #ddd;
+        }
+
+        .source-text.placeholder {
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .translated-text {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.6;
+        }
+
+        /* 实时监听状态 */
+        .live-status {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .live-status.active {
+            display: flex;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* 按钮区域 */
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .speak-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .speak-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .speak-btn.primary:active {
+            transform: scale(0.98);
+        }
+
+        .speak-btn.listening {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .speak-btn.secondary {
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+
+        .icon {
+            font-size: 20px;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 历史记录 */
+        .history {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .history-source {
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .history-target {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 语音翻译</h1>
+            <p>中文 ↔ 印尼语</p>
+        </div>
+
+        <!-- 语言切换 -->
+        <div class="lang-switch">
+            <button class="lang-btn active" id="lang1">中文</button>
+            <button class="swap-btn" id="swapBtn">⇄</button>
+            <button class="lang-btn" id="lang2">印尼语</button>
+        </div>
+
+        <!-- 模式切换 -->
+        <div class="mode-switch">
+            <button class="mode-btn active" id="modePush">按住说话</button>
+            <button class="mode-btn" id="modeLive">实时监听</button>
+        </div>
+
+        <!-- 实时监听状态 -->
+        <div class="live-status" id="liveStatus">
+            <div class="live-dot"></div>
+            <span>正在监听...</span>
+        </div>
+
+        <!-- 翻译区域 -->
+        <div class="translation-area">
+            <div class="source-text placeholder" id="sourceText">请说话...</div>
+            <div class="translated-text" id="translatedText">翻译结果将显示在这里</div>
+        </div>
+
+        <!-- 按钮 -->
+        <div class="buttons">
+            <!-- 按住说话按钮 -->
+            <button class="speak-btn primary" id="speakBtn">
+                <span class="icon">🎤</span>
+                <span id="speakBtnText">按住说话</span>
+            </button>
+
+            <!-- 实时监听按钮 -->
+            <button class="speak-btn secondary" id="liveBtn" style="display: none;">
+                <span class="icon">▶️</span>
+                <span id="liveBtnText">开始监听</span>
+            </button>
+
+            <!-- 朗读翻译按钮 -->
+            <button class="speak-btn secondary" id="playBtn">
+                <span class="icon">🔊</span>
+                <span>朗读翻译</span>
+            </button>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="history" id="history">
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 状态
+        let sourceLang = 'zh-CN';  // 源语言
+        let targetLang = 'id-ID';  // 目标语言
+        let currentMode = 'push';  // push | live
+        let isListening = false;
+        let recognition = null;
+        let history = [];
+
+        // DOM 元素
+        const lang1 = document.getElementById('lang1');
+        const lang2 = document.getElementById('lang2');
+        const swapBtn = document.getElementById('swapBtn');
+        const modePush = document.getElementById('modePush');
+        const modeLive = document.getElementById('modeLive');
+        const liveStatus = document.getElementById('liveStatus');
+        const sourceText = document.getElementById('sourceText');
+        const translatedText = document.getElementById('translatedText');
+        const speakBtn = document.getElementById('speakBtn');
+        const speakBtnText = document.getElementById('speakBtnText');
+        const liveBtn = document.getElementById('liveBtn');
+        const liveBtnText = document.getElementById('liveBtnText');
+        const playBtn = document.getElementById('playBtn');
+        const historyDiv = document.getElementById('history');
+        const toast = document.getElementById('toast');
+
+        // 初始化语音识别
+        function initRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showToast('您的浏览器不支持语音识别，请使用 Chrome 或 Safari');
+                return null;
+            }
+
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = sourceLang;
+
+            rec.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    sourceText.textContent = finalTranscript;
+                    sourceText.classList.remove('placeholder');
+                    if (currentMode === 'push') {
+                        // 按住模式下，松开后翻译
+                    } else {
+                        // 实时模式下，有结果就翻译
+                        translate(finalTranscript);
+                    }
+                } else if (interimTranscript) {
+                    sourceText.textContent = interimTranscript + '...';
+                    sourceText.classList.remove('placeholder');
+                }
+            };
+
+            rec.onerror = (event) => {
+                console.error('语音识别错误:', event.error);
+                if (event.error !== 'no-speech') {
+                    showToast('识别错误: ' + event.error);
+                }
+                stopListening();
+            };
+
+            rec.onend = () => {
+                if (isListening && currentMode === 'live') {
+                    // 实时模式下，结束后自动重启
+                    rec.start();
+                } else {
+                    stopListening();
+                }
+            };
+
+            return rec;
+        }
+
+        // 开始监听
+        function startListening() {
+            if (!recognition) {
+                recognition = initRecognition();
+            }
+            if (!recognition) return;
+
+            recognition.lang = sourceLang;
+            recognition.start();
+            isListening = true;
+
+            if (currentMode === 'push') {
+                speakBtn.classList.add('listening');
+                speakBtnText.textContent = '松开翻译';
+            } else {
+                liveStatus.classList.add('active');
+                liveBtnText.textContent = '停止监听';
+            }
+        }
+
+        // 停止监听
+        function stopListening() {
+            if (recognition) {
+                recognition.stop();
+            }
+            isListening = false;
+
+            speakBtn.classList.remove('listening');
+            speakBtnText.textContent = '按住说话';
+            liveStatus.classList.remove('active');
+            liveBtnText.textContent = '开始监听';
+        }
+
+        // 翻译文本
+        async function translate(text) {
+            if (!text.trim()) return;
+
+            translatedText.innerHTML = '<div class="loading"></div> 翻译中...';
+
+            try {
+                // 使用 MyMemory 免费翻译 API
+                const langPair = `${sourceLang.split('-')[0]}|${targetLang.split('-')[0]}`;
+                const response = await fetch(
+                    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
+                );
+                const data = await response.json();
+
+                if (data.responseStatus === 200) {
+                    const result = data.responseData.translatedText;
+                    translatedText.textContent = result;
+
+                    // 添加到历史
+                    addToHistory(text, result);
+
+                    // 自动朗读翻译结果
+                    speak(result, targetLang);
+                } else {
+                    translatedText.textContent = '翻译失败，请重试';
+                }
+            } catch (error) {
+                console.error('翻译错误:', error);
+                translatedText.textContent = '网络错误，请检查连接';
+            }
+        }
+
+        // 语音合成
+        function speak(text, lang) {
+            if (!text || !window.speechSynthesis) return;
+
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 添加到历史
+        function addToHistory(source, target) {
+            history.unshift({ source, target, lang: sourceLang });
+            if (history.length > 10) history.pop();
+
+            historyDiv.innerHTML = history.map((item, index) => `
+                <div class="history-item">
+                    <div class="history-source">${item.source}</div>
+                    <div class="history-target">${item.target}</div>
+                </div>
+            `).join('');
+        }
+
+        // 显示提示
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // 语言切换
+        swapBtn.addEventListener('click', () => {
+            [sourceLang, targetLang] = [targetLang, sourceLang];
+            [lang1.textContent, lang2.textContent] = [lang2.textContent, lang1.textContent];
+
+            sourceText.textContent = '请说话...';
+            sourceText.classList.add('placeholder');
+            translatedText.textContent = '翻译结果将显示在这里';
+
+            showToast('已切换语言方向');
+        });
+
+        // 模式切换
+        modePush.addEventListener('click', () => {
+            currentMode = 'push';
+            modePush.classList.add('active');
+            modeLive.classList.remove('active');
+            speakBtn.style.display = 'flex';
+            liveBtn.style.display = 'none';
+            stopListening();
+        });
+
+        modeLive.addEventListener('click', () => {
+            currentMode = 'live';
+            modeLive.classList.add('active');
+            modePush.classList.remove('active');
+            speakBtn.style.display = 'none';
+            liveBtn.style.display = 'flex';
+            stopListening();
+        });
+
+        // 按住说话
+        speakBtn.addEventListener('mousedown', startListening);
+        speakBtn.addEventListener('mouseup', () => {
+            const text = sourceText.textContent;
+            stopListening();
+            if (text && !sourceText.classList.contains('placeholder')) {
+                translate(text);
+            }
+        });
+        speakBtn.addEventListener('mouseleave', () => {
+            if (isListening) {
+                const text = sourceText.textContent;
+                stopListening();
+                if (text && !sourceText.classList.contains('placeholder')) {
+                    translate(text);
+                }
+            }
+        });
+
+        // 触摸事件（移动端）
+        speakBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startListening();
+        });
+        speakBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const text = sourceText.textContent;
+            stopListening();
+            if (text && !sourceText.classList.contains('placeholder')) {
+                translate(text);
+            }
+        });
+
+        // 实时监听按钮
+        liveBtn.addEventListener('click', () => {
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        });
+
+        // 朗读按钮
+        playBtn.addEventListener('click', () => {
+            const text = translatedText.textContent;
+            if (text && text !== '翻译结果将显示在这里' && !text.includes('翻译中')) {
+                speak(text, targetLang);
+            }
+        });
+
+        // 初始化
+        recognition = initRecognition();
+    </script>
+</body>
+</html>
