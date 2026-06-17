@@ -468,6 +468,7 @@
         let history = [];
         let autoDetect = false;
         let recognitionLang = 'zh-CN';  // 当前语音识别使用的语言
+        let lastDetectedLang = null;  // 上次检测到的语言
 
         // DOM 元素
         const lang1Select = document.getElementById('lang1Select');
@@ -615,27 +616,30 @@
                 if (detectedLang) {
                     // 检测到了中文
                     if (detectedLang === lang1) {
-                        // 输入是 lang1，翻译到 lang2
+                        // 输入是中文（lang1），翻译到 lang2
                         fromLang = lang1;
                         toLang = lang2;
                     } else if (detectedLang === lang2) {
-                        // 输入是 lang2，翻译到 lang1
+                        // 输入是 lang2，翻译到中文（lang1）
                         fromLang = lang2;
                         toLang = lang1;
                     } else {
                         // 检测到的语言不在选择的两个语言中
-                        // 使用默认方向
-                        fromLang = lang1;
-                        toLang = lang2;
+                        // 如果检测到中文，翻译成另一种
+                        fromLang = detectedLang;
+                        toLang = (detectedLang === 'zh-CN') ? lang2 : 'zh-CN';
                     }
                 } else {
-                    // 没有检测到特殊字符，可能是拉丁字母语言
-                    // 尝试通过文本特征判断
-                    // 如果识别语言是 lang2，则假设输入是 lang2
-                    if (recognitionLang === lang2 && lang2 !== 'zh-CN') {
+                    // 没有检测到中文字符，说明输入是拉丁字母语言
+                    // 如果 lang1 是中文，则假设输入是 lang2
+                    if (lang1 === 'zh-CN') {
                         fromLang = lang2;
                         toLang = lang1;
+                    } else if (lang2 === 'zh-CN') {
+                        fromLang = lang1;
+                        toLang = lang2;
                     } else {
+                        // 两个都不是中文，保持默认方向
                         fromLang = lang1;
                         toLang = lang2;
                     }
