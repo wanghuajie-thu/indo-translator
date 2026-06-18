@@ -166,6 +166,35 @@
             font-size: 12px;
             color: #888;
             line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        /* 说话语言选择器 */
+        .speak-lang-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .speak-lang-label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .speak-lang-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            font-size: 13px;
+            appearance: none;
+            -webkit-appearance: none;
         }
 
         /* 模式切换 */
@@ -401,6 +430,12 @@
                 </label>
             </div>
             <div class="auto-detect-hint">开启后，无需手动切换方向，根据说话语言自动翻译</div>
+            <!-- 说话语言选择 -->
+            <div class="speak-lang-selector" id="speakLangSelector" style="display: none;">
+                <span class="speak-lang-label">我要说的是：</span>
+                <select class="speak-lang-select" id="speakLangSelect">
+                </select>
+            </div>
         </div>
 
         <!-- 模式切换 -->
@@ -487,6 +522,8 @@
         const historyDiv = document.getElementById('history');
         const toast = document.getElementById('toast');
         const autoDetectToggle = document.getElementById('autoDetectToggle');
+        const speakLangSelector = document.getElementById('speakLangSelector');
+        const speakLangSelect = document.getElementById('speakLangSelect');
 
         // 检测文本语言
         function detectTextLanguage(text) {
@@ -568,8 +605,11 @@
 
             // 根据自动检测模式设置识别语言
             if (autoDetect) {
-                // 自动检测模式下，优先尝试第一种语言
-                recognitionLang = lang1;
+                // 自动检测模式下，使用说话语言选择器中选中的语言
+                if (!speakLangSelect.value) {
+                    updateSpeakLangOptions();
+                }
+                recognitionLang = speakLangSelect.value || lang1;
             } else {
                 recognitionLang = lang1;
             }
@@ -764,14 +804,38 @@
             showToast('已切换语言方向');
         });
 
+        // 更新说话语言选择器
+        function updateSpeakLangOptions() {
+            speakLangSelect.innerHTML = '';
+            // 添加 lang1 和 lang2 两个选项
+            const option1 = document.createElement('option');
+            option1.value = lang1;
+            option1.textContent = languages[lang1].name;
+            speakLangSelect.appendChild(option1);
+
+            const option2 = document.createElement('option');
+            option2.value = lang2;
+            option2.textContent = languages[lang2].name;
+            speakLangSelect.appendChild(option2);
+        }
+
         // 自动检测开关
         autoDetectToggle.addEventListener('change', (e) => {
             autoDetect = e.target.checked;
             if (autoDetect) {
                 showToast('已开启自动识别，根据说话语言自动翻译');
+                speakLangSelector.style.display = 'flex';
+                updateSpeakLangOptions();
             } else {
                 showToast('已关闭自动识别');
+                speakLangSelector.style.display = 'none';
             }
+        });
+
+        // 说话语言选择变化
+        speakLangSelect.addEventListener('change', (e) => {
+            recognitionLang = e.target.value;
+            showToast(`切换为 ${languages[recognitionLang].name} 识别`);
         });
 
         // 模式切换
