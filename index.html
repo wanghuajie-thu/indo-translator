@@ -693,53 +693,72 @@
                 showToast(`${fromName} → ${toName}`);
             }
 
-            try {
-                // 使用 Lingva Translate (Google Translate 免费 API)
-                const fromCode = languages[fromLang].code;
-                const toCode = languages[toLang].code;
+            // 尝试多个翻译服务
+            const translationSuccess = await tryTranslate(text, fromLang, toLang);
 
-                const response = await fetch(
-                    `https://lingva.ml/api/v1/${fromCode}/${toCode}/${encodeURIComponent(text)}`
-                );
+            if (translationSuccess) {
+                const { result, actualFromLang, actualToLang } = translationSuccess;
+                translatedText.textContent = result;
+                addToHistory(text, result, actualFromLang, actualToLang);
+                speak(result, actualToLang);
+            } else {
+                translatedText.textContent = '所有翻译服务暂时不可用，请稍后再试';
+            }
+        }
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const result = data.translation || text;
-                    translatedText.textContent = result;
+        // 尝试多个翻译服务
+        async function tryTranslate(text, fromLang, toLang) {
+            const fromCode = languages[fromLang].code;
+            const toCode = languages[toLang].code;
 
-                    // 添加到历史
-                    addToHistory(text, result, fromLang, toLang);
+            // Lingva 实例列表（按优先级）
+            const lingvaInstances = [
+                'https://lingva.reticent.io',
+                'https://lingva.garudalinux.org',
+                'https://lingva.fly.dev',
+                'https://lingva.ml'
+            ];
 
-                    // 自动朗读翻译结果
-                    speak(result, toLang);
-                } else {
-                    // Lingva 失败，尝试备用 API
-                    throw new Error('Lingva API failed');
-                }
-            } catch (error) {
-                console.error('Lingva 失败，尝试备用 API:', error);
+            // 尝试所有 Lingva 实例
+            for (const baseUrl of lingvaInstances) {
                 try {
-                    // 备用：MyMemory API (添加邮箱参数增加限制)
-                    const langPair = `${languages[fromLang].code}|${languages[toLang].code}`;
                     const response = await fetch(
-                        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
+                        `${baseUrl}/api/v1/${fromCode}/${toCode}/${encodeURIComponent(text)}`
                     );
-                    const data = await response.json();
-
-                    if (data.responseStatus === 200 && data.responseData) {
-                        const result = data.responseData.translatedText;
-                        translatedText.textContent = result;
-
-                        addToHistory(text, result, fromLang, toLang);
-                        speak(result, toLang);
-                    } else {
-                        translatedText.textContent = '翻译服务繁忙，请稍后再试';
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.translation) {
+                            return {
+                                result: data.translation,
+                                actualFromLang: fromLang,
+                                actualToLang: toLang
+                            };
+                        }
                     }
-                } catch (backupError) {
-                    console.error('备份 API 也失败了:', backupError);
-                    translatedText.textContent = '网络错误，请检查连接';
+                } catch (e) {
+                    console.log(`${baseUrl} 失败，尝试下一个...`);
                 }
             }
+
+            // 所有 Lingva 都失败，尝试 MyMemory
+            try {
+                const langPair = `${fromCode}|${toCode}`;
+                const response = await fetch(
+                    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`
+                );
+                const data = await response.json();
+                if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                    return {
+                        result: data.responseData.translatedText,
+                        actualFromLang: fromLang,
+                        actualToLang: toLang
+                    };
+                }
+            } catch (e) {
+                console.log('MyMemory 也失败了');
+            }
+
+            return null;
         }
 
         // 语音合成
